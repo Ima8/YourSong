@@ -119,129 +119,168 @@
   }
 
 
-
-  /// login to ROOM 
-  socket.on('sRoom', function(data) {
-    json = data;
-    console.log(json);
-
-  });
-
-  socket.on('alert', function(data) {
-    alert(data);
-  });
-
-  socket.on('playlistUpdate', function(data) {
-    console.log(data);
-    json = data;
-    update();
-  });
-
-  socket.on('nextSong', function(data) {
-    console.log(data);
-    json = data;
-    var url = json.playnow;
-    update();
-    player.loadVideoById(url, 0, "small");
-  });
-  socket.on('stop', function(data) {
-    player.stopVideo();
-  });
-  socket.on('play', function(data) {
-    player.playVideo();
-  });
-
-
-
-  var btn_submit = document.getElementById('btn_submit');
-  btn_submit.addEventListener('click', function() {
-    var message = $('#music').val();
-    $('#music').val("");
-    var temp = youtube_parser(message);
-    if (temp == false) {
-      socket.emit('newSong', message);
-      console.log(message);
-    } else {
-      socket.emit('newSong', temp);
-      console.log(temp);
-    }
-
-
-    // socket.emit('playlistADD',message);
-  }, false);
-  var btn_chowner = document.getElementById('btn_chowner');
-  btn_chowner.addEventListener('click', function() {
-    socket.emit('chowner', prompt("enter password : "));
-  }, false);
-
-  // nextSong
-  function next() {
-    var url = json.playnow;
-    console.log(url);
-    socket.emit('nextSong', url);
-  }
-
-
-
-  /// update UI playlist
-  function update() {
-   
-    console.log("hi i'am update");
-    $('#list-playing .list').remove();
-
-    function loop(callback) {
-
-      for (var i = 0; i < json.playlist.length; i++) {
-        console.log(json.playlist[i]);
-        tempVideoid[i] = json.playlist[i];
-        loadInfo(json.playlist[i]);
-      }
-      setTimeout(callback, 700); //700ms 
-    }
-    loop(function showPlaylist() {
-      for (var i = 0; i < tempVideoid.length; i++) {
-        console.log(playlistUpdate[i]);
-        $('#list-playing').append('<tr><td class="list">' + playlistUpdate[i] + '</td></tr>');
-      }
+  
+    /// login to ROOM 
+    socket.on('sRoom', function(data) {
+      json = data;
+      console.log(json);
 
     });
 
+    socket.on('alert', function(data) {
+      alert(data);
+    });
 
-  }
+    socket.on('playlistUpdate', function(data) {
+      console.log(data);
+      json = data;
+      update();
+    });
 
+    socket.on('nextSong', function(data) {
+      console.log(data);
+      json = data;
+      var url = json.playnow;
+      update();
+      player.loadVideoById(url, 0, "small");
+    });
 
-  /// helper 
-  var tempVideoid = [];
-  var playlistUpdate = [];
-  var count = 0;
+    socket.on('stop', function(data) {
+      player.stopVideo();
+    });
 
-  function loadInfo(videoId) {
-    var temp = 0;
-    var gdata = document.createElement("script");
-    gdata.src = "http://gdata.youtube.com/feeds/api/videos/" + videoId + "?v=2&alt=jsonc&callback=storeInfo";
-    var body = document.getElementsByTagName("body")[0];
-    body.appendChild(gdata);
-  }
+    socket.on('play', function(data) {
+      player.playVideo();
+      player.seekTo(data.Vtime, true);
+    });
 
-  function storeInfo(info) {
-    for (var i = 0; i < tempVideoid.length; i++) {
-      if (info.data.id == tempVideoid[i]) {
-        //console.log( info.data.title);
-        playlistUpdate[i] = info.data.title;
-      }
-    }
+//together
+socket.on('together', function(data) {
+
+  var time = player.getCurrentTime();
+  var emitJson = {
+    "playnow": json.playnow,
+    "Vtime": time
   };
 
+  socket.emit('together', emitJson);
 
-  function youtube_parser(url) {
-    var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*/;
-    var match = url.match(regExp);
-    if (match && match[7].length == 11) {
-      return match[7];
+
+
+});
+
+socket.on('getTogether', function(data) {
+json = data;
+console.log("getTogether json "+json);
+  var time = player.getCurrentTime();
+    function checkST() {
+      console.log(json.playnow);
+      console.log(time);
+
+     
+    if (json.playnow != data.playnow) {
+      player.loadVideoById(data.playnow, data.Vtime, "small");
     } else {
-      return false;
+      if (data.Vtime > time + 10 || data.Vtime < time - 10) {
+        player.seekTo(data.Vtime, true);
+      }
     }
+    json = data;
   }
+  checkST();
+
+});
+
+
+    var btn_submit = document.getElementById('btn_submit');
+    btn_submit.addEventListener('click', function() {
+      var message = $('#music').val();
+      $('#music').val("");
+      var temp = youtube_parser(message);
+      if (temp == false) {
+        socket.emit('newSong', message);
+        console.log(message);
+      } else {
+        socket.emit('newSong', temp);
+        console.log(temp);
+      }
+
+
+      // socket.emit('playlistADD',message);
+    }, false);
+    var btn_chowner = document.getElementById('btn_chowner');
+    btn_chowner.addEventListener('click', function() {
+      socket.emit('chowner', prompt("enter password : "));
+    }, false);
+
+    // nextSong
+    function next() {
+      var url = json.playnow;
+      console.log(url);
+      socket.emit('nextSong', url);
+    }
+
+
+    /// update UI playlist
+    function update() {
+
+      console.log("hi i'am update");
+      $('#list-playing .list').remove();
+
+      function loop(callback) {
+
+        for (var i = 0; i < json.playlist.length; i++) {
+          console.log(json.playlist[i]);
+          tempVideoid[i] = json.playlist[i];
+          loadInfo(json.playlist[i]);
+        }
+        setTimeout(callback, 700); //700ms 
+      }
+      loop(function showPlaylist() {
+        for (var i = 0; i < tempVideoid.length; i++) {
+          console.log(playlistUpdate[i]);
+          $('#list-playing').append('<tr><td class="list">' + playlistUpdate[i] + '</td></tr>');
+        }
+
+      });
+
+
+    }
+
+ 
+    /// helper 
+    var tempVideoid = [];
+    var playlistUpdate = [];
+    var count = 0;
+
+    function loadInfo(videoId) {
+      var temp = 0;
+      var gdata = document.createElement("script");
+      gdata.src = "http://gdata.youtube.com/feeds/api/videos/" + videoId + "?v=2&alt=jsonc&callback=storeInfo";
+      var body = document.getElementsByTagName("body")[0];
+      body.appendChild(gdata);
+    }
+
+    function storeInfo(info) {
+      for (var i = 0; i < tempVideoid.length; i++) {
+        if (info.data.id == tempVideoid[i]) {
+          //console.log( info.data.title);
+          playlistUpdate[i] = info.data.title;
+        }
+      }
+    };
+
+
+    function youtube_parser(url) {
+      var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*/;
+      var match = url.match(regExp);
+      if (match && match[7].length == 11) {
+        return match[7];
+      } else {
+        return false;
+      }
+    }
+
     </script>
   </body>
 </html>
