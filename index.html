@@ -4,7 +4,6 @@
 	<title>Your DJ is You</title>
 	<link rel="stylesheet" href="css/bootstrap.css">
 	<link rel="stylesheet" href="css/style.css">
-	<link href='http://fonts.googlepais.com/css?family=Lato:100,300,400,700,900' rel='stylesheet' type='text/css'>
 	<script type="text/javascript" src="js/jquery-1.11.2.min.js"></script>
 	<script src="js/bootstrap.min.js"></script>
   <script src="js/socket.io.js"></script>
@@ -54,11 +53,12 @@
     <script>
   var socket = io.connect('http://127.0.0.1:9998');
   socket.emit("sRoom", prompt("Insert room number : "));
+  socket.emit('chowner', prompt("If you be owner enter your password  : "));
   var json = {
-    "roomid": "1",
-    "playnow": "P1g99XOn5VY",
-    "time": "20",
-    "playlist": ["h160O3_9Crw", "RR2Hu3xnH-4", "-s6a0YT0y44", "7kmxk4h3MGU"]
+    "roomid": "",
+    "playnow": "",
+    "time": "",
+    "playlist": [""]
   };
 
 
@@ -89,34 +89,36 @@
 
   function onPlayerReady(event) {
     event.target.playVideo();
-    next();
+    //next();
   }
 
   var done = false;
 
   function onPlayerStateChange(event) {
     if (event.data == YT.PlayerState.PLAYING && !done) {
-
+      socket.emit('play', "");
       // setTimeout(stopVideo, 6000);
       // done = true;
     } else if (event.data == YT.PlayerState.ENDED) {
 
 
-      //next();
+      next();
       //socket.emit('playlistDEL',playnow);
 
 
 
     } else if (event.data == YT.PlayerState.PAUSED) {
-
+      socket.emit('stop', "");
     }
 
   }
 
   function onPlayerError(event) {
-
+    next();
 
   }
+
+
 
   /// login to ROOM 
   socket.on('sRoom', function(data) {
@@ -128,6 +130,27 @@
   socket.on('alert', function(data) {
     alert(data);
   });
+
+  socket.on('playlistUpdate', function(data) {
+    console.log(data);
+    json = data;
+    update();
+  });
+
+  socket.on('nextSong', function(data) {
+    console.log(data);
+    json = data;
+    var url = json.playnow;
+    update();
+    player.loadVideoById(url, 0, "small");
+  });
+  socket.on('stop', function(data) {
+    player.stopVideo();
+  });
+  socket.on('play', function(data) {
+    player.playVideo();
+  });
+
 
 
   var btn_submit = document.getElementById('btn_submit');
@@ -151,10 +174,49 @@
     socket.emit('chowner', prompt("enter password : "));
   }, false);
 
+  // nextSong
+  function next() {
+    var url = json.playnow;
+    console.log(url);
+    socket.emit('nextSong', url);
+  }
+
+
+
+  /// update UI playlist
+  function update() {
+   
+    console.log("hi i'am update");
+    $('#list-playing .list').remove();
+
+    function loop(callback) {
+
+      for (var i = 0; i < json.playlist.length; i++) {
+        console.log(json.playlist[i]);
+        tempVideoid[i] = json.playlist[i];
+        loadInfo(json.playlist[i]);
+      }
+      setTimeout(callback, 700); //700ms 
+    }
+    loop(function showPlaylist() {
+      for (var i = 0; i < tempVideoid.length; i++) {
+        console.log(playlistUpdate[i]);
+        $('#list-playing').append('<tr><td class="list">' + playlistUpdate[i] + '</td></tr>');
+      }
+
+    });
+
+
+  }
 
 
   /// helper 
+  var tempVideoid = [];
+  var playlistUpdate = [];
+  var count = 0;
+
   function loadInfo(videoId) {
+    var temp = 0;
     var gdata = document.createElement("script");
     gdata.src = "http://gdata.youtube.com/feeds/api/videos/" + videoId + "?v=2&alt=jsonc&callback=storeInfo";
     var body = document.getElementsByTagName("body")[0];
@@ -162,8 +224,14 @@
   }
 
   function storeInfo(info) {
-    $('#list-playing').append('<tr><td class="list">' + info.data.title + '</td></tr>');
+    for (var i = 0; i < tempVideoid.length; i++) {
+      if (info.data.id == tempVideoid[i]) {
+        //console.log( info.data.title);
+        playlistUpdate[i] = info.data.title;
+      }
+    }
   };
+
 
   function youtube_parser(url) {
     var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#\&\?]*).*/;

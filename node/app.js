@@ -40,11 +40,12 @@ io.sockets.on('connection', function(socket) {
             if (json[i].roomId == roomId) {
               console.log("Had ROOM : " + roomId);
               json[i].pass = null;
-              socket.emit("sRoom", json[i]);
+              //socket.emit("sRoom", json[i]);
               roomHas = true;
               socket.room = roomId;
               socket.join(roomId);
               console.log(socket.room);
+              io.sockets.to(socket.room).emit("playlistUpdate", json[i]);
               //socket.to("1").emit("cRoom", "joined ");
             }
           }
@@ -86,7 +87,7 @@ io.sockets.on('connection', function(socket) {
       for (var i = 0; i < json.length; i++) {
         // had room
         if (json[i].roomId == socket.room) {
-          if ((json[i].pass == pass)||(json[i].pass==null)) {
+          if ((json[i].pass == pass) || (json[i].pass == null)) {
             json[i].owner = socket.id;
             fs.writeFile('json/listroom.json', JSON.stringify(json), function(err) {
               if (err) throw err;
@@ -101,66 +102,111 @@ io.sockets.on('connection', function(socket) {
     });
   });
 
-
-  /// newSong
-  socket.on('newSong', function(data) {
-    var youtubeId = data;
-    youtube.video(youtubeId, function(err, result) { // check vaild youtube id
-
-      if (result.id === youtubeId) {
-        fs.readFile('json/listroom.json', function(err, data) {
-          if (err) {
-            console.error(err);
-          } else {
-            var json = JSON.parse(data);
-            var newItem = youtubeId;
-            // json.playlist.splice(0,1);
-            for (var i = 0; i < json.length; i++) {
-              // had room
-              if ((json[i].roomId == socket.room) && (json[i].owner == socket.id)) {
-                json[i].playlist[json[i].playlist.length] = newItem;
-                console.log(json[i].playlist.length);
-                var strjson = JSON.stringify(json);
-                fs.writeFile('json/listroom.json', strjson, function(err) {
-                  if (err) throw err;
-                  // io.sockets.emit('playlist', strjson);
-                  console.log(socket.id + " newSong " + youtubeId + " : Save >> " + socket.room);
-
-                });
-                console.log(socket.id + " newSong : Room Ok & Owner Ok >> " + socket.room);
-              }
-            }
-          }
-        });
-      }
-    });
-    console.log(data);
-  });
-
-
-
-  socket.on('disconnect', function() {
-    console.log('Got disconnect! >>>> ' + socket.id);
-
-  });
-
-  function checkPermission(id) {
+  // update playlist
+  socket.on('nextSong', function(data) {
+    var song = data;
     fs.readFile('json/listroom.json', function(err, data) {
+      var json = JSON.parse(data);
+
       for (var i = 0; i < json.length; i++) {
         // had room
-        if (json[i].roomId == socket.room) {
-          if (json[i].owner == id) {
-            console.log(socket.id + " checkPermission : User OK >> " + socket.room);
-            return true;
-          } else {
-            console.log(socket.id + " checkPermission : User wrong >> " + socket.room);
-            return false;
-          }
+        if ((json[i].roomId == socket.room) && (json[i].owner == socket.id && json[i].playnow != null)) {
+
+          json[i].playnow = json[i].playlist[0];
+          json[i].Vtime = "0";
+          json[i].playlist.splice(0, 1);
+          console.log("read json : " + json[i]);
+          var strjson = JSON.stringify(json);
+          fs.writeFile('json/listroom.json', strjson, function(err) {
+            if (err) throw err;
+            console.log(socket.id + " nextSong  : Save >> " + socket.room);
+
+          });
+          io.sockets.to(socket.room).emit("nextSong", json[i]);
+          console.log("read json2 : " + json[i]);
+          console.log(socket.id + " nextSong : Room Ok & Owner Ok >> " + socket.room);
         }
       }
     });
-    return false;
-  }
+  });
+
+  /// newSong
+  socket.on('newSong', function(data) {
+      var youtubeId = data;
+      youtube.video(youtubeId, function(err, result) { // check vaild youtube id
+
+          if (result.id === youtubeId) {
+            fs.readFile('json/listroom.json', function(err, data) {
+                if (err) {
+                  console.error(err);
+                } else {
+                  var json = JSON.parse(data);
+                  var newItem = youtubeId;
+                  var jsonEmit;
+                  // json.playlist.splice(0,1);
+                  for (var i = 0; i < json.length; i++) {
+                    // had room
+                    if ((json[i].roomId == socket.room) && (json[i].owner == socket.id)) {
+                      var jsonEmit = json[i];
+                      if (json[i].playnow == null) {
+                        json[i].playnow = newItem;
+                        io.sockets.to(socket.room).emit("nextSong", json[i]);
+                      }
+                      json[i].playlist[json[i].playlist.length] = newItem;
+                      console.log(json[i].playlist.length);
+                      var strjson = JSON.stringify(json);
+
+                      // emit update
+                      console.log("emit to room : " + jsonEmit);
+                      io.sockets.to(socket.room).emit("playlistUpdate", jsonEmit);
+
+                      fs.writeFile('json/listroom.json', strjson, function(err) {
+                        if (err) throw err;
+                        console.log(socket.id + " newSong " + youtubeId + " : Save >> " + socket.room);
+                      });
+                      console.log(socket.id + " newSong : Room Ok & Owner Ok >> " + socket.room);
+
+                    }
+                  }
+
+                
+
+
+              }
+            });
+        }
+      }); console.log(data);
+  });
+
+
+  socket.on('stop', function(data) {
+     io.sockets.to(socket.room).emit('stop', data);;
+  });
+  socket.on('play', function(data) {
+     io.sockets.to(socket.room).emit('play', data);;
+  });
+socket.on('disconnect', function() {
+  console.log('Got disconnect! >>>> ' + socket.id);
+
+});
+
+function checkPermission(id) {
+  fs.readFile('json/listroom.json', function(err, data) {
+    for (var i = 0; i < json.length; i++) {
+      // had room
+      if (json[i].roomId == socket.room) {
+        if (json[i].owner == id) {
+          console.log(socket.id + " checkPermission : User OK >> " + socket.room);
+          return true;
+        } else {
+          console.log(socket.id + " checkPermission : User wrong >> " + socket.room);
+          return false;
+        }
+      }
+    }
+  });
+  return false;
+}
 
 
 
