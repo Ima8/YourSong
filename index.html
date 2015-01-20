@@ -51,15 +51,14 @@
       </div>
     </div>
     <script>
+  //var socket = io.connect('http://novicecode.in.th:9998');
   var socket = io.connect('http://127.0.0.1:9998');
   socket.emit("sRoom", prompt("Insert room number : "));
-  socket.emit('chowner', prompt("If you be owner enter your password  : "));
-  var json = {
-    "roomid": "",
-    "playnow": "",
-    "time": "",
-    "playlist": [""]
-  };
+  setTimeout((function(){
+    socket.emit('chowner', prompt("If you be owner enter your password  : "));
+  }), 1000);
+  
+  var json = {"roomId":"1","owner":"kqF-yOh-nyHPS2YXAAAE","pass":"11","playnow":"LwfygWzFy64","Vtime":"0","playlist":["dUFzP0zZHB0","fLOHiZVc1rg"]};
 
 
   //youtube iFrame
@@ -98,7 +97,7 @@
     if (event.data == YT.PlayerState.PLAYING && !done) {
       socket.emit('play', "");
       // setTimeout(stopVideo, 6000);
-      // done = true;
+       done = true;
     } else if (event.data == YT.PlayerState.ENDED) {
 
 
@@ -108,6 +107,7 @@
 
 
     } else if (event.data == YT.PlayerState.PAUSED) {
+      var done = false;
       socket.emit('stop', "");
     }
 
